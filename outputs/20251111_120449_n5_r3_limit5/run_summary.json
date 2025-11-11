@@ -1,0 +1,22 @@
+{
+  "question_count": 5,
+  "attacker_id": "attacker",
+  "follower_id": "follower",
+  "accuracy": 0.5,
+  "metadata": {
+    "rounds": 3,
+    "model": "qwen3-8b",
+    "consensus_method": "majority",
+    "role_warning_count": 3,
+    "role_warnings": [
+      "Attacker deviated from target answer.",
+      "Attacker deviated from target answer.",
+      "Attacker deviated from target answer."
+    ],
+    "valid_questions": 4,
+    "excluded_questions": [
+      "b8c0a4703079cf661d7261a60a1bcbff"
+    ]
+  },
+  "timestamp": "2025-11-11T12:05:09.578933"
+}

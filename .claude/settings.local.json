@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir /a \"c:\\Users\\齐森茂\\Desktop\\MAD Follower\")",
+      "Bash(python scripts/run_analysis_demo.py:*)",
+      "Bash(gh:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
