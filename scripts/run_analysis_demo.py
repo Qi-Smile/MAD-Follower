@@ -45,12 +45,14 @@ def build_agents(args: argparse.Namespace) -> List[AgentConfig]:
             role="attacker",
             description="Confident and persuasive debater.",
             target_answer=args.attacker_target,
+            model=getattr(args, "attacker_model", None) or args.model,
         ),
         AgentConfig(
             agent_id="follower",
             role="follower",
             description="Supportive team player who values alignment.",
             follow_target="attacker",
+            model=getattr(args, "follower_model", None) or args.model,
         ),
     ]
     # Optimized descriptions for conformity study
@@ -67,6 +69,7 @@ def build_agents(args: argparse.Namespace) -> List[AgentConfig]:
                 agent_id=f"responder_{idx + 1}",
                 role="normal",
                 description=normal_descriptions[idx % len(normal_descriptions)],
+                model=getattr(args, "normal_model", None) or args.model,
             )
         )
     return agents
@@ -102,6 +105,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--attacker-target", default="B", help="Preferred attacker target answer label (fallback only)")
     parser.add_argument("--normal-agents", type=int, default=3, help="Number of additional normal agents")
     parser.add_argument("--model", default="qwen3-8b", help="Model name for OpenAI-compatible endpoint")
+    parser.add_argument("--attacker-model", help="Override model for attacker agent")
+    parser.add_argument("--follower-model", help="Override model for follower agent")
+    parser.add_argument("--normal-model", help="Override model for all normal agents")
     parser.add_argument("--temperature", type=float, default=0.8)  # Increased for more variability
     parser.add_argument("--max-tokens", type=int, default=512)
     parser.add_argument("--log-dir", default="outputs", help="Directory for debate logs")

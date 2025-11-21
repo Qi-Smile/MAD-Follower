@@ -85,6 +85,7 @@ class AgentConfig:
     description: str = ""
     target_answer: Optional[str] = None
     follow_target: Optional[str] = None
+    model: Optional[str] = None
 
 
 @dataclass(slots=True)

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from .agents import AttackerAgent, AgentResponse, BaseAgent, FollowerAgent, NormalAgent
-from .config import AgentConfig, ExperimentConfig
+from .config import AgentConfig, ExperimentConfig, LLMSettings
 from .datasets import CommonsenseQuestion
 from .llm_client import LLMClient, LLMClientError
 from .logging_utils import ExperimentLogger
@@ -27,6 +27,21 @@ class DebateRunner:
         }
         self.logger.write_config(config_payload)
         self.llm_client = LLMClient(self.config.llm)
+        self._agent_clients: Dict[str, LLMClient] = {}
+        for ac in self.config.agents:
+            if getattr(ac, "model", None):
+                base = self.config.llm
+                override = LLMSettings(
+                    model=ac.model or base.model,
+                    temperature=base.temperature,
+                    max_tokens=base.max_tokens,
+                    timeout_seconds=base.timeout_seconds,
+                    max_concurrent_requests=base.max_concurrent_requests,
+                    max_retries=base.max_retries,
+                )
+                self._agent_clients[ac.agent_id] = LLMClient(override)
+            else:
+                self._agent_clients[ac.agent_id] = self.llm_client
         self.agents: List[BaseAgent] = [self._instantiate_agent(ac) for ac in self.config.agents]
         self.display_names: Dict[str, str] = {}
         for idx, agent in enumerate(self.agents, start=1):
@@ -46,11 +61,12 @@ class DebateRunner:
         self.excluded_questions: List[str] = []
 
     def _instantiate_agent(self, agent_cfg: AgentConfig) -> BaseAgent:
+        client = self._agent_clients.get(agent_cfg.agent_id, self.llm_client)
         if agent_cfg.role == "attacker":
-            return AttackerAgent(agent_cfg, self.llm_client)
+            return AttackerAgent(agent_cfg, client)
         if agent_cfg.role == "follower":
-            return FollowerAgent(agent_cfg, self.llm_client)
-        return NormalAgent(agent_cfg, self.llm_client)
+            return FollowerAgent(agent_cfg, client)
+        return NormalAgent(agent_cfg, client)
 
     async def run(
         self,

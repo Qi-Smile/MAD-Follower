@@ -1,0 +1,16 @@
+{
+  "question_count": 30,
+  "attacker_id": "attacker",
+  "follower_id": "follower",
+  "accuracy": 0.36666666666666664,
+  "metadata": {
+    "rounds": 3,
+    "model": "qwen3-8b",
+    "consensus_method": "majority",
+    "role_warning_count": 0,
+    "role_warnings": [],
+    "valid_questions": 30,
+    "excluded_questions": []
+  },
+  "timestamp": "2025-11-14T07:33:06.409957"
+}

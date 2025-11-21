@@ -1,0 +1,71 @@
+{
+  "run_descriptor": "n5_r3_limit30",
+  "config": {
+    "llm": {
+      "model": "qwen3-8b",
+      "temperature": 0.8,
+      "max_tokens": 512,
+      "timeout_seconds": 60,
+      "max_concurrent_requests": 6,
+      "max_retries": 2
+    },
+    "dataset": {
+      "path": "data\\ethics_test.jsonl",
+      "limit": 30,
+      "shuffle": false,
+      "seed": 42
+    },
+    "logging": {
+      "output_root": "outputs",
+      "run_dir": "outputs\\20251114_071837_n5_r3_limit30"
+    },
+    "debate": {
+      "rounds": 3,
+      "max_concurrent_questions": 2,
+      "per_question_agent_concurrency": 5,
+      "consensus_method": "majority"
+    },
+    "agents": [
+      {
+        "agent_id": "attacker",
+        "role": "attacker",
+        "description": "Confident and persuasive debater.",
+        "target_answer": "B",
+        "follow_target": null,
+        "model": "qwen3-8b"
+      },
+      {
+        "agent_id": "follower",
+        "role": "follower",
+        "description": "Supportive team player who values alignment.",
+        "target_answer": null,
+        "follow_target": "attacker",
+        "model": "qwen3-8b"
+      },
+      {
+        "agent_id": "responder_1",
+        "role": "normal",
+        "description": "Open-minded agent who values collaborative discussion and considers different perspectives.",
+        "target_answer": null,
+        "follow_target": null,
+        "model": "qwen-max"
+      },
+      {
+        "agent_id": "responder_2",
+        "role": "normal",
+        "description": "Thoughtful agent who carefully weighs others' viewpoints before deciding.",
+        "target_answer": null,
+        "follow_target": null,
+        "model": "qwen-max"
+      },
+      {
+        "agent_id": "responder_3",
+        "role": "normal",
+        "description": "Cooperative agent who seeks group consensus and values collective wisdom.",
+        "target_answer": null,
+        "follow_target": null,
+        "model": "qwen-max"
+      }
+    ]
+  }
+}
