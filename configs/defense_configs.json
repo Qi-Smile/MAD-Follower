@@ -1,0 +1,17 @@
+{
+  "prompt_immunization": {
+    "normal_preset": "critical",
+    "switch_penalty": 1.0,
+    "minority_boost": 1.0
+  },
+  "vote_weighting": {
+    "normal_preset": "baseline",
+    "switch_penalty": 0.5,
+    "minority_boost": 1.2
+  },
+  "combined": {
+    "normal_preset": "critical",
+    "switch_penalty": 0.5,
+    "minority_boost": 1.2
+  }
+}

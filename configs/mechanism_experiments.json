@@ -1,0 +1,18 @@
+{
+  "prompt_persona": {
+    "normal_preset": ["conformist", "baseline", "neutral", "critical", "independent"]
+  },
+  "follower_mode": {
+    "follower_mode": ["independent_then_follow", "always_follow", "delayed_follow"]
+  },
+  "rationale_quality": {
+    "attacker_rationale": ["full", "minimal", "flawed"]
+  },
+  "tone_confidence": {
+    "attacker_tone": ["baseline", "assertive", "tentative", "authoritative"],
+    "force_confidence": [null, 0.99]
+  },
+  "answer_distance": {
+    "attacker_target": ["B", "C", "D", "E"]
+  }
+}

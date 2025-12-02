@@ -18,8 +18,10 @@ if str(ROOT_DIR) not in sys.path:
 
 from mad_debate.config import (
     AgentConfig,
+    AttackSettings,
     DatasetConfig,
     DebateHyperParams,
+    DefenseSettings,
     ExperimentConfig,
     LLMSettings,
 )
@@ -27,10 +29,16 @@ from mad_debate.debate_runner import DebateRunner
 from mad_debate.datasets import load_dataset
 from mad_debate.metrics import (
     AnswerTrajectory,
+    TransitionMatrix,
     build_answer_trajectories,
+    compute_answer_change_histogram,
+    compute_attack_success_rate,
     compute_conformity_rate,
     compute_drift,
+    compute_transition_matrix,
+    load_consensus_records,
     load_turn_logs,
+    summarize_usage,
 )
 
 
@@ -76,6 +84,17 @@ def build_agents(args: argparse.Namespace) -> List[AgentConfig]:
 
 
 def build_config(args: argparse.Namespace) -> ExperimentConfig:
+    attack_settings = AttackSettings(
+        follower_mode=args.follower_mode,
+        attacker_tone=args.attacker_tone,
+        rationale_style=args.attacker_rationale,
+        force_confidence=args.force_confidence,
+    )
+    defense_settings = DefenseSettings(
+        normal_prompt_preset=args.normal_preset,
+        confidence_penalty_for_switchers=args.switch_penalty,
+        minority_boost=args.minority_boost,
+    )
     experiment = ExperimentConfig(
         llm=LLMSettings(model=args.model, temperature=args.temperature, max_tokens=args.max_tokens),
         dataset=DatasetConfig(path=Path(args.dataset), limit=args.limit, shuffle=args.shuffle, seed=args.seed),
@@ -85,6 +104,8 @@ def build_config(args: argparse.Namespace) -> ExperimentConfig:
             per_question_agent_concurrency=args.agent_workers,
             consensus_method=args.consensus,
         ),
+        attack=attack_settings,
+        defense=defense_settings,
         agents=build_agents(args),
     )
     experiment.logging.output_root = Path(args.log_dir)
@@ -112,6 +133,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-tokens", type=int, default=512)
     parser.add_argument("--log-dir", default="outputs", help="Directory for debate logs")
     parser.add_argument("--plots-dir", default="outputs/plots", help="Directory to store generated plots")
+    parser.add_argument("--follower-mode", choices=["independent_then_follow", "always_follow", "delayed_follow"], default="independent_then_follow")
+    parser.add_argument("--attacker-tone", choices=["baseline", "assertive", "tentative", "authoritative"], default="baseline")
+    parser.add_argument("--attacker-rationale", choices=["full", "minimal", "flawed"], default="full")
+    parser.add_argument("--force-confidence", type=float, help="Force attacker to report a fixed confidence (0-1)")
+    parser.add_argument("--normal-preset", choices=["baseline", "conformist", "neutral", "critical", "independent"], default="baseline")
+    parser.add_argument("--switch-penalty", type=float, default=1.0, help="Penalty multiplier (<1) applied to agents that switch answers when voting")
+    parser.add_argument("--minority-boost", type=float, default=1.0, help="Boost factor (>1) for minority answers in consensus weighting")
     return parser.parse_args()
 
 
@@ -458,6 +486,7 @@ def perform_analysis(config: ExperimentConfig, plots_dir: Path) -> None:
         follower_id=follower_id,
         exclude_agent_ids=exclude_ids,
     )
+    consensus = load_consensus_records(log_path)
     trajectories = build_answer_trajectories(turns)
     conformity_stats = compute_conformity_rate(
         turns,
@@ -466,7 +495,18 @@ def perform_analysis(config: ExperimentConfig, plots_dir: Path) -> None:
         reference="attacker",
         exclude_agent_ids=exclude_ids,
     )
+    attack_success = compute_attack_success_rate(trajectories, consensus)
+    transition = compute_transition_matrix(
+        trajectories,
+        reference="ground_truth",
+        exclude_agent_ids=exclude_ids,
+    )
+    usage_totals = summarize_usage(turns)
+    change_hist = compute_answer_change_histogram(trajectories)
 
+    # Resolve per-run plots directory to avoid overwriting
+    if config.logging.run_dir and not plots_dir.is_absolute():
+        plots_dir = config.logging.run_dir / plots_dir.name
     plots_dir.mkdir(parents=True, exist_ok=True)
     generated = [
         plot_drift_metrics(drift, plots_dir / "drift_alignment.png"),
@@ -485,6 +525,29 @@ def perform_analysis(config: ExperimentConfig, plots_dir: Path) -> None:
         print(
             f"  Conformity: {conformity_stats['converted']} of {conformity_stats['candidates']} agents converted "
             f"({conformity_stats['rate']:.2%}), p-value={p_value_str}"
+        )
+    if attack_success and attack_success.get("total", 0):
+        print(
+            f"  Attack success rate: {attack_success['success']} of {attack_success['total']} "
+            f"questions ({attack_success['rate']:.2%})"
+        )
+    if transition and transition.total:
+        print(
+            "  Transition (R1 -> final): "
+            f"C->C {transition.correct_to_correct}, "
+            f"C->I {transition.correct_to_incorrect}, "
+            f"I->C {transition.incorrect_to_correct}, "
+            f"I->I {transition.incorrect_to_incorrect}"
+        )
+    if usage_totals.get("total_tokens", 0):
+        print(
+            f"  Token usage (approx): prompt={usage_totals['prompt_tokens']:.0f}, "
+            f"completion={usage_totals['completion_tokens']:.0f}, total={usage_totals['total_tokens']:.0f}"
+        )
+    if change_hist:
+        oscillating = sum(v for k, v in change_hist.items() if k > 0)
+        print(
+            f"  Answer changes histogram: {change_hist} (agents with >=1 change: {oscillating})"
         )
     if generated_paths:
         print("Generated plots:")

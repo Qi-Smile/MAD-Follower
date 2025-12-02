@@ -89,6 +89,25 @@ class AgentConfig:
 
 
 @dataclass(slots=True)
+class AttackSettings:
+    """Attack-side strategy knobs."""
+
+    follower_mode: Literal["independent_then_follow", "always_follow", "delayed_follow"] = "independent_then_follow"
+    attacker_tone: Literal["baseline", "assertive", "tentative", "authoritative"] = "baseline"
+    rationale_style: Literal["full", "minimal", "flawed"] = "full"
+    force_confidence: Optional[float] = None
+
+
+@dataclass(slots=True)
+class DefenseSettings:
+    """Defense-side strategy knobs."""
+
+    normal_prompt_preset: Literal["baseline", "conformist", "neutral", "critical", "independent"] = "baseline"
+    confidence_penalty_for_switchers: float = 1.0
+    minority_boost: float = 1.0
+
+
+@dataclass(slots=True)
 class DebateHyperParams:
     """Hyper-parameters that define how debates are executed."""
 
@@ -105,6 +124,8 @@ class ExperimentConfig:
     llm: LLMSettings = field(default_factory=LLMSettings)
     dataset: DatasetConfig = field(default_factory=DatasetConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
+    attack: AttackSettings = field(default_factory=AttackSettings)
+    defense: DefenseSettings = field(default_factory=DefenseSettings)
     debate: DebateHyperParams = field(default_factory=DebateHyperParams)
     agents: List[AgentConfig] = field(default_factory=list)
 

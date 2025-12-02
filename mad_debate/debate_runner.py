@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import asyncio
-from collections import Counter
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from .agents import AttackerAgent, AgentResponse, BaseAgent, FollowerAgent, NormalAgent
-from .config import AgentConfig, ExperimentConfig, LLMSettings
+from .config import AgentConfig, AttackSettings, DefenseSettings, ExperimentConfig, LLMSettings
 from .datasets import CommonsenseQuestion
 from .llm_client import LLMClient, LLMClientError
 from .logging_utils import ExperimentLogger
@@ -27,6 +26,8 @@ class DebateRunner:
         }
         self.logger.write_config(config_payload)
         self.llm_client = LLMClient(self.config.llm)
+        self.attack_settings: AttackSettings = getattr(self.config, "attack", AttackSettings())
+        self.defense_settings: DefenseSettings = getattr(self.config, "defense", DefenseSettings())
         self._agent_clients: Dict[str, LLMClient] = {}
         for ac in self.config.agents:
             if getattr(ac, "model", None):
@@ -63,10 +64,10 @@ class DebateRunner:
     def _instantiate_agent(self, agent_cfg: AgentConfig) -> BaseAgent:
         client = self._agent_clients.get(agent_cfg.agent_id, self.llm_client)
         if agent_cfg.role == "attacker":
-            return AttackerAgent(agent_cfg, client)
+            return AttackerAgent(agent_cfg, client, attack_settings=self.attack_settings, defense_settings=self.defense_settings)
         if agent_cfg.role == "follower":
-            return FollowerAgent(agent_cfg, client)
-        return NormalAgent(agent_cfg, client)
+            return FollowerAgent(agent_cfg, client, attack_settings=self.attack_settings, defense_settings=self.defense_settings)
+        return NormalAgent(agent_cfg, client, attack_settings=self.attack_settings, defense_settings=self.defense_settings)
 
     async def run(
         self,
@@ -360,18 +361,27 @@ class DebateRunner:
                     },
                     question_state=question_state,
                 )
-        elif role == "follower" and round_index > 0:
-            anchor = self._get_attacker_answer(history, round_index - 1)
+        elif role == "follower":
+            mode = getattr(self.attack_settings, "follower_mode", "independent_then_follow")
             follower_answer = (response.parsed_answer or "").strip().upper()
+            if mode == "independent_then_follow" and round_index == 0:
+                return
+            if mode == "delayed_follow" and round_index < 2:
+                return
+            if mode == "always_follow" and round_index == 0:
+                anchor = (question_state.get("attacker_target") or "").strip().upper()
+            else:
+                anchor = self._get_attacker_answer(history, round_index - 1)
             if anchor and follower_answer and anchor != follower_answer:
                 self._issue_warning(
-                    "Follower failed to mirror attacker from previous round.",
+                    "Follower failed to mirror attacker.",
                     {
                         "question_id": question.question_id,
                         "round": round_index + 1,
-                        "attacker_round": round_index,
+                        "attacker_round": round_index if mode != "always_follow" else 1,
                         "attacker_answer": anchor,
                         "follower_answer": follower_answer,
+                        "follower_mode": mode,
                     },
                     question_state=question_state,
                 )
@@ -402,15 +412,37 @@ class DebateRunner:
     def _build_consensus(self, question: CommonsenseQuestion, history: List[AgentTurnRecord]) -> ConsensusRecord:
         last_round = max((turn.round_index for turn in history), default=0)
         final_turns = [turn for turn in history if turn.round_index == last_round]
-        votes: Counter[str] = Counter()
+        votes: Dict[str, float] = {}
         confidences: Dict[str, float] = {}
+        first_answers: Dict[str, str] = {}
+        for turn in history:
+            if turn.parsed_answer and turn.agent_id not in first_answers:
+                first_answers[turn.agent_id] = turn.parsed_answer.strip().upper()
         for turn in final_turns:
             if not turn.parsed_answer:
                 continue
-            votes[turn.parsed_answer] += 1
+            answer_key = turn.parsed_answer
+            vote_weight = 1.0
+            first_answer = first_answers.get(turn.agent_id)
+            if (
+                first_answer
+                and first_answer.strip().upper() != answer_key.strip().upper()
+                and self.defense_settings.confidence_penalty_for_switchers < 1.0
+            ):
+                vote_weight *= max(0.0, self.defense_settings.confidence_penalty_for_switchers)
+            votes[answer_key] = votes.get(answer_key, 0.0) + vote_weight
             if turn.confidence is not None:
-                confidences.setdefault(turn.parsed_answer, 0.0)
-                confidences[turn.parsed_answer] += turn.confidence
+                confidences.setdefault(answer_key, 0.0)
+                confidences[answer_key] += turn.confidence * vote_weight
+
+        if votes and self.defense_settings.minority_boost > 1.0:
+            max_votes = max(votes.values())
+            for ans, count in list(votes.items()):
+                if count < max_votes:
+                    boosted = count * self.defense_settings.minority_boost
+                    votes[ans] = boosted
+                    if ans in confidences:
+                        confidences[ans] = confidences[ans] * self.defense_settings.minority_boost
 
         final_answer = None
         supporting_agents: List[str] = []
@@ -419,7 +451,7 @@ class DebateRunner:
             if self.config.debate.consensus_method == "confidence_weighted" and confidences:
                 final_answer = max(confidences.items(), key=lambda item: item[1])[0]
             else:
-                final_answer = votes.most_common(1)[0][0]
+                final_answer = max(votes.items(), key=lambda item: item[1])[0]
             supporting_agents = [turn.agent_id for turn in final_turns if turn.parsed_answer == final_answer]
             if confidences and final_answer in confidences:
                 confidence = confidences[final_answer] / max(len(supporting_agents), 1)

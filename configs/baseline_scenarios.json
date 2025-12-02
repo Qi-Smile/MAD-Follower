@@ -1,0 +1,7 @@
+{
+  "A": {"attacker_model": "qwen-max", "follower_model": "qwen-max", "normal_model": "qwen3-8b"},
+  "B": {"attacker_model": "qwen3-8b", "follower_model": "qwen3-8b", "normal_model": "qwen-max"},
+  "C": {"attacker_model": "qwen-max", "follower_model": "qwen-max", "normal_model": "qwen-max"},
+  "D": {"attacker_model": "qwen3-8b", "follower_model": "qwen3-8b", "normal_model": "qwen3-8b"},
+  "E": {"attacker_model": "qwen-max", "follower_model": "qwen3-8b", "normal_model": "qwen-max"}
+}

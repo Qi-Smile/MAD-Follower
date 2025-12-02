@@ -1,0 +1,3 @@
+{"id": "sample_001", "question": "A vehicle moves on rails to carry people between stations. What is it called?", "choices": {"label": ["A", "B", "C", "D", "E"], "text": ["train", "boat", "plane", "car", "bike"]}, "answerKey": "A"}
+{"id": "sample_002", "question": "You need to boil water quickly in the kitchen. Which appliance helps most?", "choices": {"label": ["A", "B", "C", "D", "E"], "text": ["toaster", "microwave", "oven", "dishwasher", "freezer"]}, "answerKey": "B"}
+{"id": "sample_003", "question": "Which animal is known to live in the ocean and has eight arms?", "choices": {"label": ["A", "B", "C", "D", "E"], "text": ["octopus", "eagle", "horse", "dog", "cat"]}, "answerKey": "A"}

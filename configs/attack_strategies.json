@@ -1,0 +1,23 @@
+{
+  "optimal": {
+    "follower_mode": "always_follow",
+    "attacker_tone": "authoritative",
+    "attacker_rationale": "minimal",
+    "force_confidence": 0.99,
+    "normal_preset": "conformist"
+  },
+  "adaptive": {
+    "follower_mode": "independent_then_follow",
+    "attacker_tone": "assertive",
+    "attacker_rationale": "full",
+    "force_confidence": null,
+    "normal_preset": "baseline"
+  },
+  "multi_stage": {
+    "follower_mode": "always_follow",
+    "attacker_tone": "authoritative",
+    "attacker_rationale": "full",
+    "force_confidence": 0.99,
+    "normal_preset": "conformist"
+  }
+}
